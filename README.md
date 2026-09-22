@@ -52,12 +52,12 @@ Sıfır derleme/kurulum (`no npm, no node build steps`) gereksinimiyle doğrudan
    git add .
    git commit -m "feat: initial release of IronPulse PWA"
    git branch -M main
-   git remote add origin https://github.com/<kullanici-adiniz>/<repo-adiniz>.git
+   git remote add origin https://github.com/TimurSarp/IronPulse.git
    git push -u origin main
    ```
 3. GitHub reponuzda **Settings > Pages** sekmesine gidin.
-4. **Branch** kısmından `main` (veya `master`) dalını ve `/ (root)` klasörünü seçip **Save** butonuna tıklayın.
-5. Birkaç dakika içinde `https://<kullanici-adiniz>.github.io/<repo-adiniz>/` adresinde siteniz canlıya alınacaktır!
+4. **Branch** kısmından `main` dalını ve `/ (root)` klasörünü seçip **Save** butonuna tıklayın.
+5. Birkaç dakika içinde `https://timursarp.github.io/IronPulse/` adresinde siteniz canlıya alınacaktır!
 
 ---
 
