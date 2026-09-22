@@ -3,11 +3,12 @@ const STREAK_KEY = 'ironpulse_streak_state';
 
 class StreakManager {
   constructor() {
+    const isHardReset = typeof localStorage !== 'undefined' && localStorage.getItem('ironpulse_hard_reset_done') === 'true';
     this.state = {
-      currentStreak: 7, // Seeded with active 7-day streak for instant great UX
-      lastActiveDate: new Date().toISOString().split('T')[0],
+      currentStreak: isHardReset ? 0 : 7,
+      lastActiveDate: isHardReset ? null : new Date().toISOString().split('T')[0],
       isBroken: false,
-      savedStreakBeforeBreak: 7
+      savedStreakBeforeBreak: isHardReset ? 0 : 7
     };
   }
 

@@ -40,7 +40,7 @@
   <!-- Custom OLED Dark Styles -->
   <link rel="stylesheet" href="./css/styles.css">
 </head>
-<body class="bg-[#050507] text-zinc-100 min-h-screen select-none font-sans antialiased">
+<body class="bg-[#050507] text-zinc-100 min-h-screen font-sans antialiased">
 
   <!-- APP CONTAINER -->
   <div id="app" class="max-w-md mx-auto min-h-screen relative flex flex-col justify-between">
@@ -483,6 +483,22 @@
             </button>
             <input type="file" id="import-file-input" accept=".json" class="hidden">
           </div>
+        </div>
+
+        <!-- Fabrika Ayarlarına Sıfırla (Hard Reset) -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-rose-500/30 bg-gradient-to-br from-rose-950/20 via-zinc-950 to-zinc-950">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+            <h3 class="text-sm font-bold text-rose-300">Fabrika Ayarlarına Sıfırla (Hard Reset)</h3>
+          </div>
+          <p class="text-xs text-zinc-400 mb-3 leading-relaxed">
+            Test ve deneme amaçlı kalan tüm geçmiş antrenmanları, seri (streak) verilerini, beslenme ve görev kayıtlarını temizleyerek sistemi sıfır kilometre tertemiz bir başlangıç durumuna getirir.
+          </p>
+
+          <button id="btn-hard-reset" class="w-full py-2.5 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-98">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            Tüm Test Verilerini Temizle (Hard Reset)
+          </button>
         </div>
 
         <!-- Görünüm & Tema Rengi Kartı -->
@@ -1137,6 +1153,27 @@
       <div class="flex gap-2 sticky bottom-0 bg-zinc-950 pt-2 border-t border-zinc-800/80">
         <button id="btn-save-routine-settings" class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition active:scale-98">
           Ayarları Kaydet ve Uygula
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HARD RESET ONAY MODALI -->
+  <div id="modal-hard-reset" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-rose-500/40 rounded-3xl p-6 shadow-2xl text-center">
+      <div class="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
+        <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+      </div>
+      <h3 class="text-lg font-bold text-zinc-100 font-heading mb-2">Tüm Test Verileri Sıfırlansın mı?</h3>
+      <p class="text-xs text-zinc-400 mb-6 leading-relaxed">
+        Bu işlem test antrenmanlarını, serileri, beslenme kayıtlarını ve görevleri tamamen temizleyecektir. Egzersiz kütüphaneniz ve şablonlarınız korunur. Bu işlem geri alınamaz!
+      </p>
+      <div class="grid grid-cols-2 gap-3">
+        <button id="btn-cancel-hard-reset" class="py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300 hover:bg-zinc-800">
+          Vazgeç
+        </button>
+        <button id="btn-confirm-hard-reset" class="py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow-lg shadow-rose-600/30">
+          Evet, Hepsini Temizle
         </button>
       </div>
     </div>

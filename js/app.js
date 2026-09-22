@@ -604,6 +604,31 @@ class App {
       };
       reader.readAsText(file);
     });
+
+    // HARD RESET (FABRİKA AYARLARINA SIFIRLA)
+    const hardResetModal = document.getElementById('modal-hard-reset');
+    document.getElementById('btn-hard-reset')?.addEventListener('click', () => {
+      hardResetModal?.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-cancel-hard-reset')?.addEventListener('click', () => {
+      hardResetModal?.classList.add('hidden');
+    });
+
+    hardResetModal?.addEventListener('click', (e) => {
+      if (e.target === hardResetModal) hardResetModal.classList.add('hidden');
+    });
+
+    document.getElementById('btn-confirm-hard-reset')?.addEventListener('click', () => {
+      hardResetModal?.classList.add('hidden');
+      const success = Storage.hardReset();
+      if (success) {
+        this.showToast('Tüm test verileri temizlendi! Sayfa yenileniyor...', 'success');
+        setTimeout(() => {
+          window.location.reload();
+        }, 600);
+      }
+    });
   }
 
   // --- ORDERED ROTATING ROUTINE CONTROLLERS ---

@@ -199,10 +199,13 @@ const Storage = {
     try {
       this.checkAndRepairIntegrity();
 
+      const isHardReset = localStorage.getItem('ironpulse_hard_reset_done') === 'true';
       const version = parseInt(localStorage.getItem(STORAGE_KEYS.VERSION) || '0', 10);
       if (version === 0) {
         // First time initialization
-        this.seedInitialData();
+        if (!isHardReset) {
+          this.seedInitialData();
+        }
         localStorage.setItem(STORAGE_KEYS.VERSION, CURRENT_SCHEMA_VERSION.toString());
       } else if (version < CURRENT_SCHEMA_VERSION) {
         // Safe upgrade with automatic pre-migration snapshot
@@ -328,6 +331,10 @@ const Storage = {
   },
 
   seedInitialData() {
+    if (localStorage.getItem('ironpulse_hard_reset_done') === 'true') {
+      this.ensureDefaultKeys();
+      return;
+    }
     this.ensureDefaultKeys();
     // Seed a couple of realistic past workouts so charts look alive immediately on fresh install
     if (this.getWorkouts().length === 0) {
@@ -492,6 +499,16 @@ const Storage = {
     }
   },
 
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      console.error(`Error removing ${key} from storage:`, e);
+      return false;
+    }
+  },
+
   // Exercises
   getExercises() {
     return this.get(STORAGE_KEYS.EXERCISES, DEFAULT_EXERCISES);
@@ -629,7 +646,10 @@ const Storage = {
 
   // Metrics (Weight & Measurements)
   getMetrics() {
-    return this.get(STORAGE_KEYS.METRICS, { weights: [], measurements: [] });
+    const m = this.get(STORAGE_KEYS.METRICS, { weights: [], measurements: [] });
+    if (!m.weights) m.weights = [];
+    if (!m.measurements) m.measurements = [];
+    return m;
   },
   addWeight(weight, date = null, note = '') {
     const metrics = this.getMetrics();
@@ -804,6 +824,42 @@ const Storage = {
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
+    }
+  },
+
+  hardReset() {
+    try {
+      localStorage.setItem('ironpulse_hard_reset_done', 'true');
+      localStorage.setItem(STORAGE_KEYS.VERSION, CURRENT_SCHEMA_VERSION.toString());
+
+      this.set(STORAGE_KEYS.WORKOUTS, []);
+      this.remove(STORAGE_KEYS.ACTIVE_WORKOUT);
+      this.set(STORAGE_KEYS.METRICS, { weights: [], measurements: [] });
+      this.set(STORAGE_KEYS.NUTRITION, {});
+      this.set(STORAGE_KEYS.TASKS, []);
+
+      const cleanStreak = {
+        currentStreak: 0,
+        lastActiveDate: null,
+        isBroken: false,
+        savedStreakBeforeBreak: 0
+      };
+      localStorage.setItem('ironpulse_streak_state', JSON.stringify(cleanStreak));
+
+      const routine = this.get(STORAGE_KEYS.ROUTINE, DEFAULT_ROUTINE);
+      if (routine) {
+        routine.currentIndex = 0;
+        this.set(STORAGE_KEYS.ROUTINE, routine);
+      }
+
+      this.ensureDefaultKeys();
+      this.syncOfficialExercises();
+
+      console.log('[IronPulse Storage] Hard reset completed successfully. Clean state created.');
+      return true;
+    } catch (err) {
+      console.error('[IronPulse Storage] Hard reset error:', err);
+      return false;
     }
   }
 };
