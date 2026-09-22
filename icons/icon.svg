@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="50%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </linearGradient>
+    <linearGradient id="primary-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="glow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="110" fill="url(#bg-grad)"/>
+  <rect width="504" height="504" x="4" y="4" rx="106" fill="none" stroke="#27272a" stroke-width="4"/>
+
+  <!-- Subtle glow circle behind logo -->
+  <circle cx="256" cy="256" r="160" fill="url(#glow-grad)" filter="url(#glow)"/>
+
+  <!-- Modern Gym Dumbbell & Pulse Hexagon Design -->
+  <g transform="translate(256, 256) scale(1.15)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Center Grip Bar -->
+    <rect x="-85" y="-12" width="170" height="24" rx="12" fill="#e4e4e7"/>
+    <line x1="-50" y1="-12" x2="-50" y2="12" stroke="#71717a" stroke-width="4"/>
+    <line x1="50" y1="-12" x2="50" y2="12" stroke="#71717a" stroke-width="4"/>
+
+    <!-- Left Plate Inner -->
+    <rect x="-105" y="-55" width="20" height="110" rx="7" fill="url(#primary-grad)"/>
+    <!-- Left Plate Outer Large -->
+    <rect x="-135" y="-75" width="22" height="150" rx="9" fill="url(#primary-grad)"/>
+    <rect x="-145" y="-40" width="8" height="80" rx="4" fill="#06b6d4"/>
+
+    <!-- Right Plate Inner -->
+    <rect x="85" y="-55" width="20" height="110" rx="7" fill="url(#primary-grad)"/>
+    <!-- Right Plate Outer Large -->
+    <rect x="113" y="-75" width="22" height="150" rx="9" fill="url(#primary-grad)"/>
+    <rect x="137" y="-40" width="8" height="80" rx="4" fill="#06b6d4"/>
+
+    <!-- Dynamic Heartbeat / Pulse Wave across center -->
+    <path d="M -160 0 L -60 0 L -30 -35 L 0 45 L 25 -25 L 45 15 L 65 0 L 160 0" 
+          fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  </g>
+
+  <!-- Brand Subtext / Accent Ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="url(#primary-grad)" stroke-width="4" stroke-dasharray="16 12" opacity="0.4"/>
+</svg>

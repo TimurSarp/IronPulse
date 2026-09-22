@@ -1,0 +1,10 @@
+# Temp & OS Files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Editor & Scratch Files
+.vscode/
+.idea/
+scratch/

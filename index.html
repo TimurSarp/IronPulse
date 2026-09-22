@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#09090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Mobil Öncelikli Kişisel Fitness, Vücut Geliştirme, Alışkanlık ve İş Takip Sistemi (PWA)">
+  <title>IronPulse • Kişisel Fitness & Takip</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="apple-touch-icon" href="./icons/icon.svg">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            oled: '#050507',
+            card: '#0e0e13',
+            cardHover: '#16161d'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom OLED Dark Styles -->
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body class="bg-[#050507] text-zinc-100 min-h-screen select-none font-sans antialiased">
+
+  <!-- APP CONTAINER -->
+  <div id="app" class="max-w-md mx-auto min-h-screen relative flex flex-col justify-between">
+
+    <!-- TOP HEADER -->
+    <header class="sticky top-0 z-30 glass-nav px-4 py-3 safe-top flex items-center justify-between border-b border-zinc-800/80">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/20">
+          <div class="w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
+            <i data-lucide="zap" class="w-4 h-4 text-emerald-400 fill-current"></i>
+          </div>
+        </div>
+        <div>
+          <h1 class="font-bold text-base tracking-tight font-heading leading-tight bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">
+            IronPulse
+          </h1>
+          <p class="text-[10px] text-zinc-400 font-medium">Fitness & Performans</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Floating Active Timer Indicator in header if running -->
+        <button id="floating-timer" class="hidden timer-pill flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-emerald-500/50 text-emerald-400 text-xs font-bold shadow-lg cursor-pointer">
+          <i data-lucide="timer" class="w-3.5 h-3.5 animate-pulse"></i>
+          <span id="floating-timer-time">00:00</span>
+        </button>
+
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <i data-lucide="flame" class="w-3.5 h-3.5 fill-current"></i>
+          <span>Aktif</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- MAIN VIEWS CONTAINER -->
+    <main class="flex-1 content-scrollable px-4 pt-3">
+
+      <!-- ================= SCREEN 1: GÜNLÜK (DAILY, QUOTES & HEATMAP) ================= -->
+      <section id="screen-daily" class="tab-screen">
+        
+        <!-- Hareketli Ateş Emojili Streak (Seri) Göstergesi -->
+        <div id="streak-display-container" class="mb-3">
+          <!-- Populated by streak.js -->
+        </div>
+
+        <!-- 50 Efsane Motivasyon Sözü Kartı -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Günün Motivasyonu
+            </span>
+            <button id="btn-refresh-quote" class="p-1.5 text-zinc-400 hover:text-amber-400 rounded-lg transition" title="Yeni Söz Göster">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <p id="daily-quote-text" class="text-sm font-semibold text-zinc-100 italic mb-2 leading-relaxed">
+            "Zihin sınırları çizmedikçe, beden asla pes etmez."
+          </p>
+          <span id="daily-quote-author" class="text-[11px] text-zinc-400 font-medium block text-right">
+            — Arnold Schwarzenegger
+          </span>
+        </div>
+
+        <!-- Sıralı Rutin & Hızlı Antrenman Kartı (Dynamic Rotating Split Widget) -->
+        <div id="daily-routine-widget" class="mb-4">
+          <!-- Populated by workout.renderNextRoutineCard() -->
+        </div>
+
+        <!-- Aylık Antrenman Isı Haritası (Calendar Heatmap) -->
+        <div class="card-oled rounded-2xl p-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="calendar" class="w-4 h-4 text-emerald-400"></i>
+              <h3 class="text-sm font-bold text-zinc-100" id="heatmap-month-title">EYLÜL 2026</h3>
+            </div>
+            <span id="heatmap-month-count" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">0 Antrenman</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 mb-3">Yeşil renkli kutucuklar tamamlanan antrenman günlerini gösterir.</p>
+
+          <div id="activity-heatmap-grid" class="grid grid-cols-7 gap-1.5">
+            <!-- Heatmap days generated dynamically by nutrition.js -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= SCREEN 2: BESLENME (NUTRITION & WATER - DEDICATED) ================= -->
+      <section id="screen-nutrition" class="tab-screen hidden">
+        
+        <!-- Beslenme & Kalori Özeti -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="apple" class="w-4 h-4 text-amber-400"></i>
+              <h3 class="text-sm font-bold text-zinc-100">Günlük Beslenme & Makrolar</h3>
+            </div>
+            <button id="btn-open-edit-nutrition" class="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+              <i data-lucide="edit-2" class="w-3 h-3"></i> Değer Gir
+            </button>
+          </div>
+
+          <!-- Calories Bar -->
+          <div class="mb-3">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-zinc-400">Kalori</span>
+              <span class="font-bold text-zinc-100"><span id="macro-calories-val">0</span> / <span id="macro-calories-target">2500</span> kcal</span>
+            </div>
+            <div class="w-full bg-zinc-800 rounded-full h-2.5 overflow-hidden">
+              <div id="macro-calories-bar" class="bg-gradient-to-r from-amber-500 to-emerald-400 h-2.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Macros 3 Columns -->
+          <div class="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-800/80">
+            <!-- Protein -->
+            <div class="bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/60">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-[10px] text-zinc-400 font-bold uppercase">Protein</span>
+                <button class="quick-macro-btn text-[10px] text-emerald-400 font-extrabold" data-macro="protein" data-val="25">+25g</button>
+              </div>
+              <span id="macro-protein-val" class="text-xs font-bold text-zinc-100 block mb-1.5">0 / 160g</span>
+              <div class="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div id="macro-protein-bar" class="bg-emerald-400 h-1.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Karb -->
+            <div class="bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/60">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-[10px] text-zinc-400 font-bold uppercase">Karb</span>
+                <button class="quick-macro-btn text-[10px] text-cyan-400 font-extrabold" data-macro="carbs" data-val="40">+40g</button>
+              </div>
+              <span id="macro-carbs-val" class="text-xs font-bold text-zinc-100 block mb-1.5">0 / 270g</span>
+              <div class="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div id="macro-carbs-bar" class="bg-cyan-400 h-1.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Yağ -->
+            <div class="bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/60">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-[10px] text-zinc-400 font-bold uppercase">Yağ</span>
+                <button class="quick-macro-btn text-[10px] text-amber-400 font-extrabold" data-macro="fat" data-val="10">+10g</button>
+              </div>
+              <span id="macro-fat-val" class="text-xs font-bold text-zinc-100 block mb-1.5">0 / 65g</span>
+              <div class="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div id="macro-fat-bar" class="bg-amber-400 h-1.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Su Takip Sayacı -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="droplet" class="w-4 h-4 text-cyan-400"></i>
+              <h3 class="text-sm font-bold text-zinc-100">Su Takip Sayacı</h3>
+            </div>
+            <button id="btn-reset-water" class="text-zinc-500 hover:text-zinc-400 text-xs">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <span id="water-val" class="text-2xl font-black text-cyan-400 font-heading">0.00 L</span>
+              <span class="text-xs text-zinc-500 block">Hedef: <span id="water-target-val">3.0 L</span></span>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-add-water-250" class="py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-black rounded-xl font-bold text-xs flex items-center gap-1 transition active:scale-95">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> 250ml
+              </button>
+              <button id="btn-add-water-500" class="py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-black rounded-xl font-bold text-xs flex items-center gap-1 transition active:scale-95">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> 500ml
+              </button>
+            </div>
+          </div>
+
+          <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+            <div id="water-progress-bar" class="bg-cyan-400 h-2 rounded-full progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- ================= SCREEN 2: ANTRENMAN (WORKOUT TRACKER) ================= -->
+      <section id="screen-workout" class="tab-screen hidden">
+        
+        <!-- SUBVIEW A: WORKOUT HOME (TEMPLATES & HISTORY) -->
+        <div id="view-workout-home">
+          <!-- Sıralı Rutin Kartı (Rotating Split Widget) -->
+          <div id="workout-routine-widget" class="mb-5">
+            <!-- Populated by workout.renderNextRoutineCard() -->
+          </div>
+
+          <!-- Top CTA -->
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-zinc-100 font-heading">Antrenman Şablonları</h2>
+            <button id="btn-open-new-template-modal" class="py-1.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Yeni Şablon
+            </button>
+          </div>
+
+          <!-- Templates Grid -->
+          <div id="templates-container" class="space-y-3 mb-6">
+            <!-- Populated via workout.js -->
+          </div>
+
+          <!-- Workout History -->
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-zinc-100 font-heading">Geçmiş Seanslar</h2>
+            <span class="text-xs text-zinc-500">Son 10 Antrenman</span>
+          </div>
+          <div id="workout-history-container">
+            <!-- Populated via workout.js -->
+          </div>
+        </div>
+
+        <!-- SUBVIEW B: ACTIVE WORKOUT RUNNER -->
+        <div id="view-workout-active" class="hidden">
+          
+          <!-- Sticky Workout Status Header -->
+          <div class="card-oled rounded-2xl p-4 mb-4 border border-emerald-500/40 bg-zinc-950/90 sticky top-14 z-20 shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <h3 id="active-workout-title" class="font-extrabold text-base text-zinc-100 truncate">Antrenman Başladı</h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="active-workout-duration" class="font-mono text-sm font-bold text-emerald-400 bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800">
+                  00:00
+                </span>
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-3">
+              <button id="btn-finish-workout" class="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                <i data-lucide="check" class="w-4 h-4 stroke-[3]"></i> Antrenmanı Bitir
+              </button>
+              <button id="btn-cancel-workout" class="py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-rose-400 text-xs font-semibold rounded-xl flex items-center justify-center transition">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Exercises List -->
+          <div id="active-exercises-list">
+            <!-- Populated via workout.js -->
+          </div>
+
+          <!-- Add Exercise Button -->
+          <button id="btn-add-exercise-to-workout" class="w-full py-3.5 mb-6 rounded-2xl bg-zinc-900 hover:bg-zinc-800/80 border border-dashed border-zinc-700 text-zinc-300 font-semibold text-xs flex items-center justify-center gap-2 transition active:scale-95">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i>
+            Egzersiz Ekle
+          </button>
+        </div>
+
+      </section>
+
+      <!-- ================= SCREEN 3: İŞ & GÖREVLER (KULLANICININ ÖZEL İSTEĞİ) ================= -->
+      <section id="screen-tasks" class="tab-screen hidden">
+        
+        <!-- Privacy & Security Notice Banner -->
+        <div class="card-oled rounded-2xl p-3.5 mb-4 border border-cyan-500/30 bg-cyan-500/[0.04]">
+          <div class="flex items-start gap-2.5">
+            <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-cyan-300 mb-0.5">Tamamen Gizli ve Yerel Takip</h4>
+              <p class="text-[11px] text-zinc-400 leading-relaxed">
+                Girdiğiniz iş, müşteri ve kişisel hedefler yalnızca bu cihazın belleğinde saklanır. Dışarıya hiçbir veri iletilmez.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task Completion Summary Card -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <span class="text-xs text-zinc-400 font-medium">Bugünkü Hedef Başarısı</span>
+              <div class="flex items-baseline gap-2 mt-0.5">
+                <span id="tasks-stats-count" class="text-xl font-extrabold text-zinc-100 font-heading">0 / 0</span>
+                <span id="tasks-stats-pct" class="text-xs font-bold text-cyan-400">%0</span>
+              </div>
+            </div>
+            <button id="btn-reset-tasks-daily" class="py-1.5 px-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs rounded-lg flex items-center gap-1">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Sıfırla
+            </button>
+          </div>
+
+          <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+            <div id="tasks-stats-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2 rounded-full progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Action Bar: Add Task & Filter Pills -->
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-cyan-500 text-black text-xs font-bold flex-shrink-0" data-filter="all">Tümü</button>
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold flex-shrink-0" data-filter="İş">İş</button>
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold flex-shrink-0" data-filter="Gelişim">Gelişim</button>
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold flex-shrink-0" data-filter="Finans">Finans</button>
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold flex-shrink-0" data-filter="numeric">Sayısal</button>
+            <button class="task-filter-pill px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 text-xs font-semibold flex-shrink-0" data-filter="checkbox">Tikler</button>
+          </div>
+        </div>
+
+        <!-- Add Task Big Button -->
+        <button id="btn-open-add-task-modal" class="w-full py-3 mb-4 rounded-xl bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 border border-cyan-500/30 text-cyan-300 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-98">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          + Yeni Görev / Hedef Ekle
+        </button>
+
+        <!-- Tasks Dynamic List -->
+        <div id="tasks-list-container">
+          <!-- Populated via tasks.js -->
+        </div>
+
+      </section>
+
+      <!-- ================= SCREEN 4: VÜCUT & İSTATİSTİK (METRICS & CHARTS) ================= -->
+      <section id="screen-metrics" class="tab-screen hidden">
+        
+        <!-- Kilo & Özet Kartı -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs text-zinc-400 block">Güncel Vücut Ağırlığı</span>
+              <span id="metric-current-weight" class="text-2xl font-black text-zinc-100 font-heading">— kg</span>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] text-zinc-400 block">7 Günlük Ortalama</span>
+              <span id="metric-7d-avg-weight" class="text-base font-bold text-emerald-400">— kg</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-800/80">
+            <span id="metric-weight-delta" class="text-xs text-zinc-400">—</span>
+            <div class="flex gap-2">
+              <button id="btn-open-add-weight" class="py-1.5 px-3 bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-black rounded-lg text-xs font-bold flex items-center gap-1 transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Kilo Gir
+              </button>
+              <button id="btn-open-add-measure" class="py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
+                <i data-lucide="ruler" class="w-3.5 h-3.5"></i> Ölçü Gir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Kilo Trend Grafiği -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-zinc-300">Kilo & 7 Günlük Trend (kg)</h3>
+            <span class="text-[10px] text-cyan-400 font-semibold">Son 14 Gün</span>
+          </div>
+          <div class="h-44 w-full relative">
+            <canvas id="canvas-weight-trend"></canvas>
+          </div>
+        </div>
+
+        <!-- 2. Egzersiz Güç Artış Grafiği (Progressive Overload) -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-zinc-300">Egzersiz Güç Geçmişi</h3>
+          </div>
+          <select id="exercise-chart-select" class="w-full mb-3 bg-zinc-900 border border-zinc-800 text-xs rounded-lg py-1.5 px-2.5 text-zinc-200 focus:outline-none focus:border-emerald-500">
+            <!-- Populated via charts.js -->
+          </select>
+          <div class="h-44 w-full relative">
+            <canvas id="canvas-exercise-progress"></canvas>
+          </div>
+        </div>
+
+        <!-- 3. Hacim / Tonaj Grafiği -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-zinc-300">Kaldırılan Toplam Tonaj (Volume Load)</h3>
+            <span class="text-[10px] text-violet-400 font-semibold">Seans Başına kg</span>
+          </div>
+          <div class="h-40 w-full relative">
+            <canvas id="canvas-volume-load"></canvas>
+          </div>
+        </div>
+
+        <!-- 4. Kas Grubu Dağılımı (Doughnut) -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <h3 class="text-xs font-bold text-zinc-300 mb-2">Kas Grubu Set Dağılımı</h3>
+          <div class="h-48 w-full relative">
+            <canvas id="canvas-muscle-distribution"></canvas>
+          </div>
+        </div>
+
+        <!-- Vücut Ölçüleri Tablosu -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold text-zinc-300">Vücut Ölçüleri Geçmişi</h3>
+            <span class="text-[10px] text-zinc-500">cm</span>
+          </div>
+          <div id="measurements-summary-container">
+            <!-- Populated via metrics.js -->
+          </div>
+        </div>
+
+        <!-- Son Kilo Girişleri -->
+        <div class="card-oled rounded-2xl p-4 border border-zinc-800">
+          <h3 class="text-xs font-bold text-zinc-300 mb-2">Son Tartı Kayıtları</h3>
+          <div id="weight-history-list">
+            <!-- Populated via metrics.js -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= SCREEN 5: AYARLAR (SETTINGS & BACKUP) ================= -->
+      <section id="screen-settings" class="tab-screen hidden">
+        
+        <!-- Veri Güvenliği ve Yedekleme (En Önemli Alan) -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+            <h3 class="text-sm font-bold text-zinc-100">Veri Yönetimi & Yedekleme</h3>
+          </div>
+          <p class="text-xs text-zinc-400 mb-4">
+            Tüm antrenman, kilo, alışkanlık ve özel iş görevlerinizi tek tıkla JSON dosyası olarak cihazınıza kaydedebilir veya geri yükleyebilirsiniz.
+          </p>
+
+          <div class="space-y-2">
+            <button id="btn-export-backup" class="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition active:scale-98">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Tüm Verileri JSON Olarak İndir (Yedekle)
+            </button>
+
+            <button id="btn-import-backup" class="w-full py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-semibold text-xs flex items-center justify-center gap-2 transition active:scale-98">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              JSON Dosyasından Geri Yükle
+            </button>
+            <input type="file" id="import-file-input" accept=".json" class="hidden">
+          </div>
+        </div>
+
+        <!-- Görünüm & Tema Rengi Kartı -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="palette" class="w-4 h-4 text-emerald-400"></i>
+              <h3 class="text-sm font-bold text-zinc-100">Uygulama Tema Rengi</h3>
+            </div>
+            <span id="active-theme-name" class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Zümrüt Yeşili</span>
+          </div>
+          <p class="text-xs text-zinc-400 mb-3">Uygulamanın buton, parlama ve vurgu renklerini tek dokunuşla kişiselleştir.</p>
+
+          <!-- 7 Hazır Tema Paleti -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3" id="preset-themes-container">
+            <!-- Populated via theme.js -->
+          </div>
+
+          <!-- Özel Renk Seçici (Custom Hex Picker) -->
+          <div class="pt-3 border-t border-zinc-800 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold text-zinc-200 block">Özel Renk Seçici</span>
+              <span class="text-[10px] text-zinc-500">Renk tekerinden dilediğin rengi seç</span>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span id="custom-color-hex-label" class="text-xs font-mono font-extrabold text-zinc-300 bg-zinc-900 px-2 py-1 rounded-lg border border-zinc-800">#10B981</span>
+              <div class="relative w-8 h-8 rounded-full overflow-hidden border-2 border-zinc-600 shadow-lg cursor-pointer flex-shrink-0">
+                <input type="color" id="setting-custom-color-picker" value="#10b981" class="absolute -top-4 -left-4 w-16 h-16 opacity-0 cursor-pointer">
+                <div id="setting-custom-color-preview" class="w-full h-full rounded-full bg-emerald-500 pointer-events-none"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Antrenman & Dinlenme Sayacı Tercihleri -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="timer" class="w-4 h-4 text-cyan-400"></i>
+            <h3 class="text-sm font-bold text-zinc-100">Antrenman & Sayaç Ayarları</h3>
+          </div>
+
+          <div class="space-y-3">
+            <label class="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span class="text-xs font-semibold text-zinc-200 block">Sayacı Sesli Uyar</span>
+                <span class="text-[10px] text-zinc-500">Süre bitiminde zil ve son 3 saniye geri sayım sesi</span>
+              </div>
+              <input type="checkbox" id="setting-sound-toggle" class="rounded bg-zinc-900 border-zinc-700 text-emerald-500 w-4 h-4 focus:ring-0">
+            </label>
+
+            <label class="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span class="text-xs font-semibold text-zinc-200 block">Titreşim Uyarısı</span>
+                <span class="text-[10px] text-zinc-500">Süre bittiğinde cihazı titret</span>
+              </div>
+              <input type="checkbox" id="setting-vibrate-toggle" class="rounded bg-zinc-900 border-zinc-700 text-emerald-500 w-4 h-4 focus:ring-0">
+            </label>
+
+            <label class="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span class="text-xs font-semibold text-zinc-200 block">Ekran Kilidini Açık Tut (Wake Lock)</span>
+                <span class="text-[10px] text-zinc-500">Antrenman esnasında ekranın kararmasını önle</span>
+              </div>
+              <input type="checkbox" id="setting-wakelock-toggle" class="rounded bg-zinc-900 border-zinc-700 text-emerald-500 w-4 h-4 focus:ring-0">
+            </label>
+
+            <div class="flex items-center justify-between py-1">
+              <span class="text-xs font-semibold text-zinc-200">Varsayılan Dinlenme Süresi (sn)</span>
+              <input type="number" id="setting-rest-input" class="w-16 bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-center text-xs font-bold text-zinc-100">
+            </div>
+          </div>
+        </div>
+
+        <!-- Günlük Hedefler -->
+        <div class="card-oled rounded-2xl p-4 mb-4 border border-zinc-800">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="target" class="w-4 h-4 text-amber-400"></i>
+            <h3 class="text-sm font-bold text-zinc-100">Beslenme & Su Hedefleri</h3>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">Hedef Kalori (kcal)</label>
+              <input type="number" id="setting-target-cal" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+            </div>
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">Hedef Protein (g)</label>
+              <input type="number" id="setting-target-prot" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+            </div>
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">Hedef Karb (g)</label>
+              <input type="number" id="setting-target-carb" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+            </div>
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">Hedef Yağ (g)</label>
+              <input type="number" id="setting-target-fat" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+            </div>
+            <div class="col-span-2">
+              <label class="text-[10px] text-zinc-400 block mb-1">Günlük Su Hedefi (ml)</label>
+              <input type="number" id="setting-target-water" step="250" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+            </div>
+          </div>
+
+          <button id="btn-save-settings" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition">
+            Ayarları Kaydet
+          </button>
+        </div>
+
+        <!-- PWA ve Bilgi Kartı -->
+        <div class="text-center py-4 text-zinc-600 text-xs">
+          <p class="font-semibold text-zinc-500">IronPulse v1.0.0 (PWA)</p>
+          <p class="text-[10px] mt-1">Sıfır Bağımlılık • Çevrimdışı Çalışır • %100 Yerel Veri</p>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- ================= BOTTOM NAVIGATION BAR (6 TABS) ================= -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto glass-nav safe-bottom-nav px-1 py-1.5 border-t border-zinc-800/90">
+      <div class="flex items-center justify-between">
+        
+        <!-- 1. Günlük -->
+        <button class="bottom-nav-btn text-emerald-400 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="daily">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span>Günlük</span>
+        </button>
+
+        <!-- 2. Beslenme (YENİ SEKME) -->
+        <button class="bottom-nav-btn text-zinc-500 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="nutrition">
+          <i data-lucide="apple" class="w-4 h-4"></i>
+          <span>Beslenme</span>
+        </button>
+
+        <!-- 3. Antrenman -->
+        <button class="bottom-nav-btn text-zinc-500 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="workout">
+          <i data-lucide="dumbbell" class="w-4 h-4"></i>
+          <span>Antrenman</span>
+        </button>
+
+        <!-- 4. İş & Hedefler (Kullanıcının Özel Modülü) -->
+        <button class="bottom-nav-btn text-zinc-500 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="tasks">
+          <div class="relative">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          </div>
+          <span>İş/Hedef</span>
+        </button>
+
+        <!-- 5. Analiz & İstatistik -->
+        <button class="bottom-nav-btn text-zinc-500 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="metrics">
+          <i data-lucide="line-chart" class="w-4 h-4"></i>
+          <span>Analiz</span>
+        </button>
+
+        <!-- 6. Ayarlar -->
+        <button class="bottom-nav-btn text-zinc-500 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition flex-1" data-tab="settings">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>Ayarlar</span>
+        </button>
+
+      </div>
+    </nav>
+
+  </div> <!-- End App Container -->
+
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. DİNLENME SAYACI MODALI -->
+  <div id="timer-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Dinlenme Sayacı</h3>
+        <button id="modal-timer-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Large Countdown Display -->
+      <div class="text-center py-6">
+        <div id="modal-timer-time" class="text-6xl font-black font-mono tracking-tight text-emerald-400">00:00</div>
+        <!-- Mini Progress Bar -->
+        <div class="w-3/4 mx-auto bg-zinc-800 rounded-full h-2 mt-4 overflow-hidden">
+          <div id="timer-progress-bar" class="bg-emerald-400 h-2 rounded-full progress-bar-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="grid grid-cols-5 gap-2 mb-4">
+        <button class="timer-preset-btn py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-xs font-bold text-zinc-200" data-sec="30">30s</button>
+        <button class="timer-preset-btn py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-xs font-bold text-zinc-200" data-sec="45">45s</button>
+        <button class="timer-preset-btn py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-xs font-bold text-zinc-200" data-sec="60">60s</button>
+        <button class="timer-preset-btn py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-xs font-bold text-zinc-200" data-sec="90">90s</button>
+        <button class="timer-preset-btn py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 text-xs font-bold text-zinc-200" data-sec="120">120s</button>
+      </div>
+
+      <!-- Controls (+15, -15, Durdur) -->
+      <div class="flex gap-2">
+        <button id="timer-btn-sub15" class="flex-1 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300">-15s</button>
+        <button id="timer-btn-stop" class="flex-1 py-3 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold">Durdur</button>
+        <button id="timer-btn-add15" class="flex-1 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300">+15s</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. İŞ & GÖREV EKLEME MODALI (KULLANICI İÇİN ÖZEL) -->
+  <div id="modal-add-task" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Yeni Görev veya İş Hedefi</h3>
+        <button id="modal-add-task-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Title -->
+        <div>
+          <label class="text-xs font-semibold text-zinc-300 block mb-1">Görev / Hedef Başlığı</label>
+          <input type="text" id="task-input-title" placeholder="Örn: 20 Müşteri Araması Yap veya E-postaları Yanıtla" 
+            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-3 text-sm text-zinc-100 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <!-- Type Selection: Checkbox vs Numeric Target -->
+        <div>
+          <label class="text-xs font-semibold text-zinc-300 block mb-1.5">Takip Biçimi</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 cursor-pointer hover:border-cyan-500/50">
+              <input type="radio" name="task-type-radio" value="checkbox" checked class="text-cyan-500 focus:ring-0 bg-zinc-950">
+              <div>
+                <span class="text-xs font-bold text-zinc-200 block">Tik İşareti</span>
+                <span class="text-[10px] text-zinc-500">Yapıldı / Yapılmadı</span>
+              </div>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 cursor-pointer hover:border-cyan-500/50">
+              <input type="radio" name="task-type-radio" value="numeric" class="text-cyan-500 focus:ring-0 bg-zinc-950">
+              <div>
+                <span class="text-xs font-bold text-zinc-200 block">Sayısal Hedef</span>
+                <span class="text-[10px] text-zinc-500">Adet / Sayı Girişi</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Numeric Target Fields (Hidden by default until numeric is selected) -->
+        <div id="task-numeric-fields" class="hidden grid grid-cols-2 gap-3 bg-zinc-900/60 p-3 rounded-xl border border-zinc-800/80">
+          <div>
+            <label class="text-[11px] text-zinc-400 block mb-1">Hedef Sayı</label>
+            <input type="number" id="task-input-target" value="10" min="1" 
+              class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-bold text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[11px] text-zinc-400 block mb-1">Birim (Arama, Sayfa vb.)</label>
+            <input type="text" id="task-input-unit" value="Adet" 
+              class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+        </div>
+
+        <!-- Category & Recurring -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-zinc-300 block mb-1">Kategori</label>
+            <select id="task-input-category" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-2.5 text-xs text-zinc-200">
+              <option value="İş">İş</option>
+              <option value="Gelişim">Gelişim</option>
+              <option value="Finans">Finans</option>
+              <option value="Kişisel">Kişisel</option>
+            </select>
+          </div>
+          <div class="flex items-center pt-5">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="task-input-recurring" checked class="rounded bg-zinc-900 border-zinc-700 text-cyan-500 w-4 h-4 focus:ring-0">
+              <span class="text-xs text-zinc-300">Günlük Sıfırlansın</span>
+            </label>
+          </div>
+        </div>
+
+        <button id="btn-save-task" class="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-lg shadow-cyan-500/20 transition active:scale-98">
+          Görevi Kaydet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. EGZERSİZ SEÇİM MODALI -->
+  <div id="modal-select-exercise" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav max-h-[85vh] flex flex-col">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4 flex-shrink-0"></div>
+      
+      <div class="flex items-center justify-between mb-3 flex-shrink-0">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Egzersiz Seç</h3>
+        <button id="modal-select-exercise-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="mb-3 flex-shrink-0">
+        <input type="text" id="search-exercise-input" placeholder="Egzersiz ara (örn: Bench, Squat)..." 
+          class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500">
+      </div>
+
+      <!-- Muscle Filter Pills -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 flex-shrink-0 scrollbar-none">
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[11px] font-bold flex-shrink-0" data-muscle="all">Tümü</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Göğüs">Göğüs</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Sırt">Sırt</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Omuz">Omuz</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Bacak">Bacak</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Kol">Kol</button>
+        <button class="filter-muscle-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-[11px] font-semibold flex-shrink-0" data-muscle="Karın">Karın</button>
+      </div>
+
+      <!-- Exercises List Scrollable -->
+      <div id="exercise-selection-list" class="flex-1 overflow-y-auto pr-1">
+        <!-- Populated via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 1RM HESAPLAYICI MODALI -->
+  <div id="modal-1rm" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <span class="text-[10px] text-emerald-400 font-bold uppercase">Hesaplayıcı</span>
+          <h3 id="1rm-exercise-name" class="text-base font-bold text-zinc-100 font-heading">1RM Hesaplayıcı</h3>
+        </div>
+        <button id="modal-1rm-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Ağırlık (kg)</label>
+          <input type="number" id="1rm-weight-input" value="80" step="2.5" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-sm font-bold text-zinc-100 text-center">
+        </div>
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Tekrar Sayısı</label>
+          <input type="number" id="1rm-reps-input" value="6" min="1" max="30" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-sm font-bold text-zinc-100 text-center">
+        </div>
+      </div>
+
+      <!-- Result Banner -->
+      <div class="card-oled p-4 rounded-2xl border border-emerald-500/40 text-center mb-4 bg-emerald-500/5">
+        <span class="text-xs text-zinc-400">Tahmini 1RM (Tek Tekrar Maksimumu)</span>
+        <div id="1rm-result-val" class="text-3xl font-black text-emerald-400 font-heading mt-1">96 kg</div>
+      </div>
+
+      <!-- Rep Max Breakdown -->
+      <div class="mb-2">
+        <span class="text-[11px] font-bold text-zinc-400 block mb-2">Yüzdelik Ağırlık Dağılımı</span>
+        <div id="1rm-percentages" class="space-y-1">
+          <!-- Populated via workout.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. YENİ ŞABLON OLUŞTURMA MODALI (TAM MANUEL MÜDAHALE) -->
+  <div id="modal-new-template" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav max-h-[90vh] flex flex-col">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-3 flex-shrink-0"></div>
+      
+      <div class="flex items-center justify-between mb-3 flex-shrink-0">
+        <div>
+          <h3 class="text-base font-bold text-zinc-100 font-heading">Özel Antrenman Şablonu</h3>
+          <p class="text-[10px] text-zinc-400">İstediğin hareketleri, bölgeleri ve set sayılarını manuel belirle.</p>
+        </div>
+        <button id="modal-new-template-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5 mb-3 flex-shrink-0">
+        <div>
+          <label class="text-xs font-semibold text-zinc-300 block mb-1">Şablon Adı</label>
+          <input type="text" id="new-template-name" placeholder="Örn: Özel İtiş & Kol Güç" 
+            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-xs text-zinc-100">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-zinc-300 block mb-1">Kategori</label>
+          <select id="new-template-category" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-2.5 text-xs text-zinc-200">
+            <option value="Özel Program">Özel Program</option>
+            <option value="PPL">PPL (Push/Pull/Legs)</option>
+            <option value="Upper/Lower">Upper / Lower</option>
+            <option value="Full Body">Full Body</option>
+          </select>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-xs font-bold text-zinc-200">Egzersizler:</span>
+          <button type="button" id="btn-add-custom-template-row" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> + Hareket Ekle
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Exercise Rows List -->
+      <div id="new-template-custom-exercises-list" class="flex-1 overflow-y-auto space-y-2 pr-1 mb-3">
+        <!-- Dynamic rows added via app.js -->
+      </div>
+
+      <button id="btn-save-new-template" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex-shrink-0 transition">
+        Şablonu Kaydet
+      </button>
+    </div>
+  </div>
+
+  <!-- 6. BESLENME & MAKRO DÜZENLEME MODALI -->
+  <div id="modal-edit-nutrition" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Bugünkü Besin Girişi</h3>
+        <button id="modal-nutrition-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Tüketilen Kalori (kcal)</label>
+          <input type="number" id="edit-calories-input" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-xs font-bold text-zinc-100">
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-1">Protein (g)</label>
+            <input type="number" id="edit-protein-input" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2 text-xs font-bold text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-1">Karb (g)</label>
+            <input type="number" id="edit-carbs-input" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2 text-xs font-bold text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-1">Yağ (g)</label>
+            <input type="number" id="edit-fat-input" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2 text-xs font-bold text-zinc-100">
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-save-nutrition" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition">
+        Kaydet
+      </button>
+    </div>
+  </div>
+
+  <!-- 7. KİLO GİRİŞİ MODALI -->
+  <div id="modal-add-weight" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Tartı Kilosu Ekle</h3>
+        <button id="modal-weight-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Kilo (kg)</label>
+          <input type="number" step="0.1" id="weight-input-val" placeholder="78.5" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-base font-black text-zinc-100 text-center">
+        </div>
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Tarih</label>
+          <input type="date" id="weight-input-date" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-xs text-zinc-100">
+        </div>
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Not (İsteğe Bağlı)</label>
+          <input type="text" id="weight-input-note" placeholder="Örn: Sabah aç karnına" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 px-3 text-xs text-zinc-100">
+        </div>
+      </div>
+
+      <button id="btn-save-weight" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition">
+        Kiloyu Kaydet
+      </button>
+    </div>
+  </div>
+
+  <!-- 8. VÜCUT ÖLÇÜLERİ MODALI -->
+  <div id="modal-add-measure" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-zinc-100 font-heading">Vücut Ölçüleri (cm)</h3>
+        <button id="modal-measure-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="text-[11px] text-zinc-400 block mb-1">Tarih</label>
+          <input type="date" id="measure-input-date" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-1.5 px-3 text-xs text-zinc-100">
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Kol / Biceps (cm)</label>
+            <input type="number" step="0.1" id="measure-biceps" placeholder="38.0" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Göğüs (cm)</label>
+            <input type="number" step="0.1" id="measure-chest" placeholder="104.0" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Bel (cm)</label>
+            <input type="number" step="0.1" id="measure-waist" placeholder="82.0" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Kalça (cm)</label>
+            <input type="number" step="0.1" id="measure-hips" placeholder="98.0" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Bacak (cm)</label>
+            <input type="number" step="0.1" id="measure-thigh" placeholder="58.5" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-400 block mb-0.5">Kalf (cm)</label>
+            <input type="number" step="0.1" id="measure-calf" placeholder="38.0" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs text-zinc-100">
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-save-measure" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition">
+        Ölçüleri Kaydet
+      </button>
+    </div>
+  </div>
+
+  <!-- 9. ANTRENMAN TAMAMLANDI KUTLAMA MODALI -->
+  <div id="modal-workout-finish" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-emerald-500/50 rounded-3xl p-6 shadow-2xl text-center glow-emerald">
+      <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="trophy" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-black text-zinc-100 font-heading mb-1">Harika İş Çıkardın!</h3>
+      <p class="text-xs text-zinc-400 mb-4" id="finish-summary-name">Antrenman Başarıyla Tamamlandı</p>
+
+      <div class="grid grid-cols-3 gap-2 bg-zinc-900/80 p-3 rounded-2xl border border-zinc-800 mb-5">
+        <div>
+          <span class="text-[10px] text-zinc-400 block">Toplam Tonaj</span>
+          <span id="finish-summary-volume" class="text-xs font-bold text-emerald-400">0 kg</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-zinc-400 block">Süre</span>
+          <span id="finish-summary-duration" class="text-xs font-bold text-cyan-400">0 dk</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-zinc-400 block">Setler</span>
+          <span id="finish-summary-sets" class="text-xs font-bold text-zinc-200">0</span>
+        </div>
+      </div>
+
+      <button id="modal-finish-close" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition">
+        Tamamla ve Kapat
+      </button>
+    </div>
+  </div>
+
+  <!-- 10. STREAK RECOVERY MODALI ("Ezik misin?") -->
+  <div id="modal-streak-recovery" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="w-full max-w-sm bg-zinc-950 border border-orange-500/50 rounded-3xl p-6 shadow-2xl text-center">
+      <div class="w-16 h-16 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center mx-auto mb-3">
+        <span class="text-3xl">🔥</span>
+      </div>
+      <span class="text-[11px] font-bold text-orange-400 uppercase tracking-wider block mb-1">Seri Bozuldu</span>
+      <h3 class="text-base font-black text-zinc-100 font-heading mb-2 leading-snug">
+        Strike'ın bozuldu, eğer geri dönmesini isteyecek kadar ezik misin ?
+      </h3>
+      <p class="text-xs text-zinc-400 mb-5">
+        Önceki serin: <span id="recovery-prev-streak-count" class="font-bold text-amber-300 font-mono text-sm">7</span> gün. Karar senin!
+      </p>
+
+      <div class="space-y-2">
+        <button id="btn-confirm-recover-streak" class="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-extrabold text-xs shadow-lg shadow-orange-500/25 transition active:scale-95">
+          Evet, geri ver (Kaldığım Yerden Devam Et)
+        </button>
+        <button id="btn-cancel-recover-streak" class="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-bold text-xs transition">
+          Hayır, sıfırdan hak edeceğim
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11. SIRALI ANTRENMAN RUTİNİ AYARLARI MODALI -->
+  <div id="modal-routine-settings" class="hidden fixed inset-0 z-50 flex items-end justify-center modal-backdrop">
+    <div class="w-full max-w-md bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-6 modal-sheet safe-bottom-nav max-h-[90vh] overflow-y-auto">
+      <div class="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-base font-bold text-zinc-100 font-heading">Sıralı Antrenman Yöntemi</h3>
+          <p class="text-[11px] text-zinc-400">Tarihe takılmadan, sırayı bozmayan otomatik döngü</p>
+        </div>
+        <button id="modal-routine-close" class="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 mb-5">
+        <!-- 1. Haftalık Hedef Gün Sayısı -->
+        <div class="card-oled p-3.5 rounded-2xl border border-zinc-800 bg-zinc-900/40">
+          <label class="text-xs font-bold text-zinc-200 block mb-1">Haftanın kaç günü antrenman yapacaksın?</label>
+          <p class="text-[11px] text-zinc-400 mb-2.5">Haftalık hedefini tamamlaman için referans alınır.</p>
+          <div class="flex items-center gap-2">
+            <input type="number" id="routine-weekly-days-input" min="1" max="7" value="4" 
+              class="w-20 bg-zinc-900 border border-zinc-700 rounded-xl py-2 px-3 text-center text-sm font-extrabold text-emerald-400 focus:outline-none focus:border-emerald-500">
+            <span class="text-xs text-zinc-300 font-semibold">Gün / Hafta</span>
+          </div>
+        </div>
+
+        <!-- 2. Şu Anki Sıra / Hangi Gündesin? -->
+        <div class="card-oled p-3.5 rounded-2xl border border-zinc-800 bg-zinc-900/40">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-zinc-200">Sıradaki Gün (Döngü Konumu)</label>
+            <span class="text-[10px] text-emerald-400 font-semibold">Otomatik İlerler</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 mb-3">Antrenman yaptıkça sıradaki gün kendiliğinden bir sonraki adıma geçer. İstersen buradan manuel olarak da değiştirebilirsin.</p>
+          <div id="routine-day-picker-container" class="grid grid-cols-2 gap-2">
+            <!-- Populated dynamically: button per day -->
+          </div>
+        </div>
+
+        <!-- 3. Döngü Günleri ve Egzersizleri Düzenle -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Antrenman Sırası & Hareketler</h4>
+            <button id="btn-add-routine-day" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Yeni Gün Ekle
+            </button>
+          </div>
+          
+          <div id="routine-days-editor-list" class="space-y-3">
+            <!-- Populated dynamically with accordion / day cards -->
+          </div>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="pt-2">
+          <button id="btn-reset-default-routine" class="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-amber-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            Varsayılan 4 Güne Sıfırla (Göğüs - Omuz - Sırt - Bacak)
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-2 sticky bottom-0 bg-zinc-950 pt-2 border-t border-zinc-800/80">
+        <button id="btn-save-routine-settings" class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition active:scale-98">
+          Ayarları Kaydet ve Uygula
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IronPulse Application Scripts (Zero build, works offline, works on file:// and GitHub Pages) -->
+  <script src="./js/storage.js?v=1.0.4"></script>
+  <script src="./js/theme.js?v=1.0.4"></script>
+  <script src="./js/sound.js?v=1.0.4"></script>
+  <script src="./js/quotes.js?v=1.0.4"></script>
+  <script src="./js/streak.js?v=1.0.4"></script>
+  <script src="./js/timer.js?v=1.0.4"></script>
+  <script src="./js/workout.js?v=1.0.4"></script>
+  <script src="./js/tasks.js?v=1.0.4"></script>
+  <script src="./js/nutrition.js?v=1.0.4"></script>
+  <script src="./js/metrics.js?v=1.0.4"></script>
+  <script src="./js/charts.js?v=1.0.4"></script>
+  <script src="./js/app.js?v=1.0.4"></script>
+</body>
+</html>

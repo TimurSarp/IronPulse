@@ -1,0 +1,20 @@
+{
+  "name": "IronPulse - Kişisel Fitness & Takip",
+  "short_name": "IronPulse",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait",
+  "description": "Mobil Öncelikli Kişisel Fitness, Vücut Geliştirme, Alışkanlık ve İş Takip Sistemi",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["fitness", "productivity", "health"]
+}
