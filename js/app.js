@@ -49,10 +49,32 @@ class App {
         navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
             console.log('Service Worker registered:', reg.scope);
+            // Check for new version on every load
+            if (reg.update) reg.update();
+
+            reg.addEventListener('updatefound', () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.addEventListener('statechange', () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[IronPulse] New update installed. Auto-activating...');
+                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
+              }
+            });
           })
           .catch((err) => {
             console.log('Service Worker registration failed:', err);
           });
+
+        let isRefreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            window.location.reload();
+          }
+        });
       });
     }
   }
@@ -619,7 +641,7 @@ class App {
       if (e.target === hardResetModal) hardResetModal.classList.add('hidden');
     });
 
-    document.getElementById('btn-confirm-hard-reset')?.addEventListener('click', () => {
+      document.getElementById('btn-confirm-hard-reset')?.addEventListener('click', () => {
       hardResetModal?.classList.add('hidden');
       const success = Storage.hardReset();
       if (success) {
@@ -628,6 +650,28 @@ class App {
           window.location.reload();
         }, 600);
       }
+    });
+
+    // FORCE CACHE REFRESH (Önbelleği Temizle & Yeni Sürümü Zorla İndir)
+    document.getElementById('btn-force-refresh-cache')?.addEventListener('click', async () => {
+      this.showToast('Önbellek temizleniyor, güncel sürüm alınıyor...', 'info');
+      try {
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys();
+          await Promise.all(cacheKeys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let reg of regs) {
+            await reg.unregister();
+          }
+        }
+      } catch (e) {
+        console.warn('Cache clear error:', e);
+      }
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?refresh=' + Date.now();
+      }, 500);
     });
   }
 
