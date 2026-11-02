@@ -13,34 +13,34 @@ class App {
     // 3. Register Service Worker for PWA
     this.registerServiceWorker();
 
-    // 4. Initialize submodules
+    // 4. Initialize Sport Submodules
     if (window.streak) streak.init();
     timer.init();
     workout.init();
-    tasks.init();
-    nutrition.init();
-    metrics.init();
     charts.init();
+    this.renderWalkingWidget();
     this.renderQuote();
 
-    // 4. Bind UI & Events
+    // 5. Bind UI & Events
     this.bindNavigation();
     this.bindModals();
+    this.bindWalkingEvents();
     this.bindSettings();
     this.bindGlobalActions();
 
-    // 5. Restore active workout view if session was in progress
+    // 6. Restore active workout focus view if session was in progress
     if (workout.activeSession) {
-      this.switchTab('workout');
+      this.switchTab('daily');
+      workout.renderActiveWorkout();
       workout.showActiveWorkoutView();
     }
 
-    // 6. Refresh Lucide Icons
+    // 7. Refresh Lucide Icons
     if (window.lucide) {
       window.lucide.createIcons();
     }
 
-    console.log('IronPulse PWA initialized successfully.');
+    console.log('IronPulse PPL v3.0 initialized.');
   }
 
   registerServiceWorker() {
@@ -48,16 +48,12 @@ class App {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
-            console.log('Service Worker registered:', reg.scope);
-            // Check for new version on every load
             if (reg.update) reg.update();
-
             reg.addEventListener('updatefound', () => {
               const installingWorker = reg.installing;
               if (installingWorker) {
                 installingWorker.addEventListener('statechange', () => {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[IronPulse] New update installed. Auto-activating...');
                     installingWorker.postMessage({ type: 'SKIP_WAITING' });
                   }
                 });
@@ -79,7 +75,7 @@ class App {
     }
   }
 
-  // --- NAVIGATION CONTROLLER ---
+  // --- NAVIGATION CONTROLLER (4 Pure Sport Tabs) ---
   bindNavigation() {
     const navButtons = document.querySelectorAll('.bottom-nav-btn');
     navButtons.forEach(btn => {
@@ -93,19 +89,16 @@ class App {
   switchTab(tabName) {
     this.currentTab = tabName;
 
-    // Hide all tab screens
     document.querySelectorAll('.tab-screen').forEach(screen => {
       screen.classList.add('hidden');
     });
 
-    // Show target screen
     const targetEl = document.getElementById(`screen-${tabName}`);
     if (targetEl) {
       targetEl.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
-    // Update Bottom Navigation Active Styles
     document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
       const isTarget = btn.dataset.tab === tabName;
       if (isTarget) {
@@ -117,27 +110,124 @@ class App {
       }
     });
 
-    // If switching to metrics/charts, trigger chart resize/redraw
-    if (tabName === 'metrics') {
-      setTimeout(() => {
-        charts.renderAll();
-      }, 50);
-    } else if (tabName === 'tasks') {
-      tasks.render();
-    } else if (tabName === 'daily') {
-      this.renderQuote();
-      if (window.streak) streak.render();
-      nutrition.renderActivityCalendar();
-      workout.renderNextRoutineCard();
-    } else if (tabName === 'nutrition') {
-      nutrition.render();
+    if (tabName === 'daily') {
+      if (workout.activeSession) {
+        workout.showActiveWorkoutView();
+        workout.renderActiveWorkout();
+      } else {
+        workout.hideActiveWorkoutView();
+        if (window.streak) streak.render();
+        workout.renderNextRoutineCard();
+        this.renderWalkingWidget();
+        workout.renderActivityCalendar();
+        this.renderQuote();
+      }
     } else if (tabName === 'workout') {
-      workout.renderNextRoutineCard();
       workout.renderTemplates();
       workout.renderWorkoutHistory();
+    } else if (tabName === 'metrics') {
+      setTimeout(() => {
+        charts.renderAll();
+      }, 40);
     } else if (tabName === 'settings') {
       if (window.theme) theme.renderThemeSettingsUI();
     }
+  }
+
+  // --- DAILY WALKING (KM <-> STEPS, 174cm / 43 EU Shoe) ---
+  renderWalkingWidget() {
+    const todayWalk = Storage.getTodayWalking();
+    const settings = Storage.getSettings();
+    const targetKm = settings.dailyKmTarget || 5.0;
+    const targetSteps = Storage.kmToSteps(targetKm);
+
+    const currentKm = todayWalk.km || 0;
+    const currentSteps = todayWalk.steps || Storage.kmToSteps(currentKm);
+    const pct = Math.min(100, Math.round((currentKm / targetKm) * 100));
+
+    const kmDisplay = document.getElementById('walking-current-km');
+    if (kmDisplay) kmDisplay.textContent = `${currentKm.toFixed(2)} km`;
+
+    const stepsDisplay = document.getElementById('walking-current-steps');
+    if (stepsDisplay) stepsDisplay.textContent = `≈ ${currentSteps.toLocaleString('tr-TR')} adım`;
+
+    const targetDisplay = document.getElementById('walking-target-summary');
+    if (targetDisplay) targetDisplay.textContent = `Hedef: ${targetKm} km (≈ ${targetSteps.toLocaleString('tr-TR')} adım)`;
+
+    const barEl = document.getElementById('walking-progress-bar');
+    if (barEl) barEl.style.width = `${pct}%`;
+
+    const kmInput = document.getElementById('walking-input-km');
+    if (kmInput && document.activeElement !== kmInput) {
+      kmInput.value = currentKm > 0 ? currentKm : '';
+    }
+
+    const stepsInput = document.getElementById('walking-input-steps');
+    if (stepsInput && document.activeElement !== stepsInput) {
+      stepsInput.value = currentSteps > 0 ? currentSteps : '';
+    }
+  }
+
+  bindWalkingEvents() {
+    const kmInput = document.getElementById('walking-input-km');
+    const stepsInput = document.getElementById('walking-input-steps');
+
+    // Two-way live conversion when typing KM
+    kmInput?.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val >= 0) {
+        if (stepsInput) stepsInput.value = Storage.kmToSteps(val);
+      } else if (e.target.value === '') {
+        if (stepsInput) stepsInput.value = '';
+      }
+    });
+
+    // Two-way live conversion when typing Steps
+    stepsInput?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (!isNaN(val) && val >= 0) {
+        if (kmInput) kmInput.value = Storage.stepsToKm(val);
+      } else if (e.target.value === '') {
+        if (kmInput) kmInput.value = '';
+      }
+    });
+
+    // Save button for KM / Steps
+    document.getElementById('btn-save-walking')?.addEventListener('click', () => {
+      const kmVal = parseFloat(kmInput?.value);
+      const stepsVal = parseInt(stepsInput?.value, 10);
+
+      if (!isNaN(kmVal) && kmVal >= 0) {
+        Storage.saveTodayWalkingKm(kmVal);
+      } else if (!isNaN(stepsVal) && stepsVal >= 0) {
+        Storage.saveTodayWalkingSteps(stepsVal);
+      } else {
+        Storage.saveTodayWalkingKm(0);
+      }
+
+      if (window.sound) sound.playTone(640, 'sine', 0.08, 0.15);
+      this.renderWalkingWidget();
+      if (window.streak) streak.triggerActivityCheck();
+      this.showToast('Günlük yürüyüş kaydedildi!', 'success');
+    });
+
+    // Quick +KM buttons
+    document.querySelectorAll('.btn-quick-add-km').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const delta = parseFloat(btn.dataset.km || 1);
+        Storage.addTodayWalkingKm(delta);
+        if (window.sound) sound.playTone(680, 'sine', 0.08, 0.15);
+        this.renderWalkingWidget();
+        if (window.streak) streak.triggerActivityCheck();
+      });
+    });
+
+    document.getElementById('btn-reset-walking')?.addEventListener('click', () => {
+      Storage.saveTodayWalkingKm(0);
+      if (kmInput) kmInput.value = '';
+      if (stepsInput) stepsInput.value = '';
+      this.renderWalkingWidget();
+    });
   }
 
   renderQuote() {
@@ -172,10 +262,6 @@ class App {
     document.getElementById('timer-btn-stop')?.addEventListener('click', () => timer.stop());
 
     // WORKOUT ACTIONS
-    document.getElementById('btn-start-empty-workout')?.addEventListener('click', () => {
-      workout.startNewWorkout(null, 'Serbest Antrenman');
-    });
-
     document.getElementById('btn-finish-workout')?.addEventListener('click', () => {
       workout.finishWorkout();
     });
@@ -187,7 +273,6 @@ class App {
     document.getElementById('modal-finish-close')?.addEventListener('click', () => {
       document.getElementById('modal-workout-finish').classList.add('hidden');
       this.switchTab('daily');
-      workout.renderNextRoutineCard();
     });
 
     // ADD EXERCISE TO ACTIVE WORKOUT MODAL
@@ -201,7 +286,6 @@ class App {
       addExModal.classList.add('hidden');
     });
 
-    // Filter exercises by muscle pill
     document.querySelectorAll('.filter-muscle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-muscle-btn').forEach(b => {
@@ -215,30 +299,27 @@ class App {
       });
     });
 
-    // Search exercise input
     document.getElementById('search-exercise-input')?.addEventListener('input', (e) => {
       const activeFilterBtn = document.querySelector('.filter-muscle-btn.bg-emerald-500');
       const muscle = activeFilterBtn ? activeFilterBtn.dataset.muscle : 'all';
       this.renderExerciseSelectionList(muscle, e.target.value);
     });
 
-    // CREATE NEW TEMPLATE MODAL
-    document.getElementById('btn-open-new-template-modal')?.addEventListener('click', () => {
-      this.openNewTemplateModal();
-    });
-
-    document.getElementById('modal-new-template-close')?.addEventListener('click', () => {
-      document.getElementById('modal-new-template').classList.add('hidden');
-    });
-
-    document.getElementById('btn-add-custom-template-row')?.addEventListener('click', () => {
-      if (!this.customTemplateRows) this.customTemplateRows = [];
-      this.customTemplateRows.push({ name: '', muscle: 'Göğüs', sets: 3 });
-      this.renderCustomTemplateRows();
-    });
-
-    document.getElementById('btn-save-new-template')?.addEventListener('click', () => {
-      this.saveNewTemplate();
+    // Quick add custom exercise inside modal-select-exercise
+    document.getElementById('btn-create-custom-ex-inline')?.addEventListener('click', () => {
+      const searchInput = document.getElementById('search-exercise-input');
+      const customName = (searchInput?.value || '').trim() || prompt('Yeni hareket adı:');
+      if (!customName) return;
+      const newEx = Storage.saveExercise({
+        name: customName,
+        muscle: 'Genel',
+        equipment: 'Serbest',
+        category: 'Özel',
+        defaultIncrement: 2.5
+      });
+      workout.addExerciseToActiveWorkout(newEx.id);
+      addExModal.classList.add('hidden');
+      this.showToast(`${customName} antrenmana eklendi`, 'success');
     });
 
     // MOTIVASYON SÖZÜ YENİLE
@@ -254,43 +335,6 @@ class App {
       if (window.streak) streak.resetStreak();
     });
 
-    // TASKS (İŞ VE GÖREVLER)
-    document.getElementById('btn-open-add-task-modal')?.addEventListener('click', () => {
-      tasks.openAddTaskModal();
-    });
-
-    document.getElementById('modal-add-task-close')?.addEventListener('click', () => {
-      tasks.closeAddTaskModal();
-    });
-
-    document.getElementById('btn-save-task')?.addEventListener('click', () => {
-      tasks.saveNewTaskFromModal();
-    });
-
-    document.getElementById('btn-reset-tasks-daily')?.addEventListener('click', () => {
-      tasks.resetAllToday();
-    });
-
-    document.querySelectorAll('input[name="task-type-radio"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        tasks.updateTaskTypeForm();
-      });
-    });
-
-    document.querySelectorAll('.task-filter-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.task-filter-pill').forEach(b => {
-          b.classList.remove('bg-cyan-500', 'text-black');
-          b.classList.add('bg-zinc-800', 'text-zinc-400');
-        });
-        btn.classList.add('bg-cyan-500', 'text-black');
-        btn.classList.remove('bg-zinc-800', 'text-zinc-400');
-
-        tasks.currentFilter = btn.dataset.filter;
-        tasks.render();
-      });
-    });
-
     // 1RM CALCULATOR MODAL
     document.getElementById('modal-1rm-close')?.addEventListener('click', () => {
       document.getElementById('modal-1rm').classList.add('hidden');
@@ -299,38 +343,11 @@ class App {
     document.getElementById('1rm-weight-input')?.addEventListener('input', () => workout.calc1RM());
     document.getElementById('1rm-reps-input')?.addEventListener('input', () => workout.calc1RM());
 
-    // NUTRITION & WATER
-    document.getElementById('btn-add-water-250')?.addEventListener('click', () => nutrition.addWater(250));
-    document.getElementById('btn-add-water-500')?.addEventListener('click', () => nutrition.addWater(500));
-    document.getElementById('btn-reset-water')?.addEventListener('click', () => nutrition.resetWater());
-
-    document.getElementById('btn-open-edit-nutrition')?.addEventListener('click', () => nutrition.openEditMacrosModal());
-    document.getElementById('modal-nutrition-close')?.addEventListener('click', () => {
-      document.getElementById('modal-edit-nutrition').classList.add('hidden');
-    });
-    document.getElementById('btn-save-nutrition')?.addEventListener('click', () => nutrition.saveMacrosFromModal());
-
-    // Quick add macros (+20g protein, etc.)
-    document.querySelectorAll('.quick-macro-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        nutrition.quickAddMacro(btn.dataset.macro, parseInt(btn.dataset.val, 10));
-      });
+    // PPL ROUTINE SETTINGS MODAL
+    document.getElementById('btn-open-ppl-editor')?.addEventListener('click', () => {
+      this.openRoutineSettingsModal();
     });
 
-    // METRICS (WEIGHT & MEASUREMENT)
-    document.getElementById('btn-open-add-weight')?.addEventListener('click', () => metrics.openAddWeightModal());
-    document.getElementById('modal-weight-close')?.addEventListener('click', () => {
-      document.getElementById('modal-add-weight').classList.add('hidden');
-    });
-    document.getElementById('btn-save-weight')?.addEventListener('click', () => metrics.saveWeightFromModal());
-
-    document.getElementById('btn-open-add-measure')?.addEventListener('click', () => metrics.openAddMeasureModal());
-    document.getElementById('modal-measure-close')?.addEventListener('click', () => {
-      document.getElementById('modal-add-measure').classList.add('hidden');
-    });
-    document.getElementById('btn-save-measure')?.addEventListener('click', () => metrics.saveMeasureFromModal());
-
-    // ROUTINE SPLIT SETTINGS MODAL
     document.getElementById('modal-routine-close')?.addEventListener('click', () => {
       this.closeRoutineSettingsModal();
     });
@@ -365,8 +382,8 @@ class App {
 
     if (exercises.length === 0) {
       container.innerHTML = `
-        <div class="py-8 text-center text-zinc-500 text-xs">
-          Egzersiz bulunamadı.
+        <div class="py-6 text-center text-zinc-500 text-xs">
+          Eşleşen hareket bulunamadı. Yukarıdaki "+ Özel Ekle" butonuna basarak hemen oluşturabilirsin.
         </div>
       `;
       return;
@@ -390,170 +407,15 @@ class App {
       row.addEventListener('click', () => {
         workout.addExerciseToActiveWorkout(row.dataset.id);
         document.getElementById('modal-select-exercise').classList.add('hidden');
-        this.showToast('Egzersiz antrenmana eklendi', 'success');
+        this.showToast('Hareket antrenmana eklendi', 'success');
       });
     });
-  }
-
-  openNewTemplateModal() {
-    const modal = document.getElementById('modal-new-template');
-    const nameInput = document.getElementById('new-template-name');
-    const catSelect = document.getElementById('new-template-category');
-
-    if (nameInput) nameInput.value = '';
-    if (catSelect) catSelect.value = 'Özel Program';
-
-    // Start with 3 custom rows ready to edit
-    this.customTemplateRows = [
-      { name: 'Barbell Bench Press', muscle: 'Göğüs', sets: 4 },
-      { name: 'Incline Dumbbell Press', muscle: 'Göğüs', sets: 3 },
-      { name: 'Cable Chest Fly', muscle: 'Göğüs', sets: 3 }
-    ];
-
-    this.renderCustomTemplateRows();
-    if (modal) modal.classList.remove('hidden');
-  }
-
-  renderCustomTemplateRows() {
-    const container = document.getElementById('new-template-custom-exercises-list');
-    if (!container) return;
-
-    if (!this.customTemplateRows || this.customTemplateRows.length === 0) {
-      container.innerHTML = `
-        <div class="text-center py-4 text-zinc-500 text-xs">
-          Henüz egzersiz eklenmedi. Yukarıdaki "+ Hareket Ekle" butonuna basın.
-        </div>
-      `;
-      return;
-    }
-
-    const muscleOptions = ['Göğüs', 'Sırt', 'Omuz', 'Biceps', 'Triceps', 'Bacak', 'Kalf', 'Karın', 'Genel'];
-
-    container.innerHTML = this.customTemplateRows.map((row, idx) => `
-      <div class="card-oled p-2.5 rounded-xl border border-zinc-800/90 flex items-center gap-2">
-        <div class="flex-1 min-w-0">
-          <input type="text" value="${row.name || ''}" placeholder="Hareket Adı (Örn: Dips, Incline Curl)" 
-            class="row-name-input w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-semibold text-zinc-100 focus:outline-none focus:border-emerald-500 mb-1.5" 
-            data-idx="${idx}">
-          <div class="flex items-center gap-2">
-            <select class="row-muscle-select bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-[11px] text-zinc-300 focus:outline-none flex-1" data-idx="${idx}">
-              ${muscleOptions.map(m => `<option value="${m}" ${m === row.muscle ? 'selected' : ''}>${m}</option>`).join('')}
-            </select>
-            <div class="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-0.5">
-              <span class="text-[10px] text-zinc-400 font-bold">Set:</span>
-              <input type="number" min="1" max="15" value="${row.sets || 3}" 
-                class="row-sets-input w-10 bg-transparent text-center text-xs font-bold text-emerald-400 focus:outline-none" data-idx="${idx}">
-            </div>
-          </div>
-        </div>
-        <button type="button" class="btn-remove-template-row p-2 text-zinc-500 hover:text-rose-400 rounded-lg transition flex-shrink-0" data-idx="${idx}">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
-      </div>
-    `).join('');
-
-    if (window.lucide) window.lucide.createIcons();
-
-    // Attach row events
-    container.querySelectorAll('.row-name-input').forEach(input => {
-      input.addEventListener('input', (e) => {
-        const idx = parseInt(input.dataset.idx, 10);
-        if (this.customTemplateRows[idx]) {
-          this.customTemplateRows[idx].name = e.target.value;
-        }
-      });
-    });
-
-    container.querySelectorAll('.row-muscle-select').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const idx = parseInt(sel.dataset.idx, 10);
-        if (this.customTemplateRows[idx]) {
-          this.customTemplateRows[idx].muscle = e.target.value;
-        }
-      });
-    });
-
-    container.querySelectorAll('.row-sets-input').forEach(input => {
-      input.addEventListener('change', (e) => {
-        const idx = parseInt(input.dataset.idx, 10);
-        if (this.customTemplateRows[idx]) {
-          this.customTemplateRows[idx].sets = parseInt(e.target.value, 10) || 3;
-        }
-      });
-    });
-
-    container.querySelectorAll('.btn-remove-template-row').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx, 10);
-        this.customTemplateRows.splice(idx, 1);
-        this.renderCustomTemplateRows();
-      });
-    });
-  }
-
-  saveNewTemplate() {
-    const nameInput = document.getElementById('new-template-name');
-    const name = nameInput ? nameInput.value.trim() : '';
-
-    if (!name) {
-      alert('Lütfen şablon için bir isim girin.');
-      return;
-    }
-
-    const catSelect = document.getElementById('new-template-category');
-    const category = catSelect ? catSelect.value.trim() : 'Özel';
-
-    // Filter valid rows
-    const validRows = (this.customTemplateRows || []).filter(r => r.name && r.name.trim() !== '');
-
-    if (validRows.length === 0) {
-      alert('Lütfen en az 1 egzersiz adı yazın.');
-      return;
-    }
-
-    const allExercises = Storage.getExercises();
-    const templateExercises = [];
-
-    validRows.forEach(row => {
-      const trimmedName = row.name.trim();
-      let match = allExercises.find(e => e.name.toLowerCase() === trimmedName.toLowerCase());
-
-      if (!match) {
-        // Automatically register new custom exercise
-        match = {
-          id: 'ex_custom_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-          name: trimmedName,
-          muscle: row.muscle || 'Genel',
-          equipment: 'Serbest',
-          category: 'Özel'
-        };
-        Storage.saveExercise(match);
-      }
-
-      templateExercises.push({
-        exerciseId: match.id,
-        defaultSets: parseInt(row.sets, 10) || 3
-      });
-    });
-
-    const newTmpl = {
-      id: 'tmpl_' + Date.now(),
-      name: name,
-      category: category,
-      exercises: templateExercises
-    };
-
-    Storage.saveTemplate(newTmpl);
-    document.getElementById('modal-new-template')?.classList.add('hidden');
-    workout.renderTemplates();
-    this.showToast('Özel antrenman şablonu başarıyla oluşturuldu!', 'success');
   }
 
   // --- SETTINGS CONTROLLER ---
   bindSettings() {
     const settings = Storage.getSettings();
 
-    // Populate inputs
     const soundToggle = document.getElementById('setting-sound-toggle');
     if (soundToggle) soundToggle.checked = settings.restTimerSound;
 
@@ -566,36 +428,24 @@ class App {
     const restInput = document.getElementById('setting-rest-input');
     if (restInput) restInput.value = settings.defaultRestSeconds;
 
-    const calInput = document.getElementById('setting-target-cal');
-    if (calInput) calInput.value = settings.calorieTarget;
+    const kmTargetInput = document.getElementById('setting-target-km');
+    if (kmTargetInput) kmTargetInput.value = settings.dailyKmTarget || 5.0;
 
-    const protInput = document.getElementById('setting-target-prot');
-    if (protInput) protInput.value = settings.proteinTarget;
+    const repCeilingInput = document.getElementById('setting-rep-ceiling');
+    if (repCeilingInput) repCeilingInput.value = settings.repTargetCeiling || 12;
 
-    const carbInput = document.getElementById('setting-target-carb');
-    if (carbInput) carbInput.value = settings.carbTarget;
-
-    const fatInput = document.getElementById('setting-target-fat');
-    if (fatInput) fatInput.value = settings.fatTarget;
-
-    const waterInput = document.getElementById('setting-target-water');
-    if (waterInput) waterInput.value = settings.waterTarget;
-
-    // Save settings button
     document.getElementById('btn-save-settings')?.addEventListener('click', () => {
       Storage.saveSettings({
-        restTimerSound: soundToggle.checked,
-        restTimerVibrate: vibrateToggle.checked,
-        wakeLockEnabled: wakeLockToggle.checked,
-        defaultRestSeconds: parseInt(restInput.value, 10) || 90,
-        calorieTarget: parseInt(calInput.value, 10) || 2500,
-        proteinTarget: parseInt(protInput.value, 10) || 160,
-        carbTarget: parseInt(carbInput.value, 10) || 270,
-        fatTarget: parseInt(fatInput.value, 10) || 65,
-        waterTarget: parseInt(waterInput.value, 10) || 3000
+        restTimerSound: soundToggle ? soundToggle.checked : true,
+        restTimerVibrate: vibrateToggle ? vibrateToggle.checked : true,
+        wakeLockEnabled: wakeLockToggle ? wakeLockToggle.checked : true,
+        defaultRestSeconds: parseInt(restInput?.value, 10) || 90,
+        dailyKmTarget: parseFloat(kmTargetInput?.value) || 5.0,
+        repTargetCeiling: parseInt(repCeilingInput?.value, 10) || 12
       });
-      nutrition.render();
-      this.showToast('Ayarlar başarıyla kaydedildi', 'success');
+      this.renderWalkingWidget();
+      workout.renderNextRoutineCard();
+      this.showToast('Ayarlar kaydedildi', 'success');
     });
 
     // EXPORT JSON BACKUP
@@ -607,7 +457,7 @@ class App {
     // IMPORT JSON BACKUP
     const fileInput = document.getElementById('import-file-input');
     document.getElementById('btn-import-backup')?.addEventListener('click', () => {
-      fileInput.click();
+      fileInput?.click();
     });
 
     fileInput?.addEventListener('change', (e) => {
@@ -619,7 +469,7 @@ class App {
         const res = Storage.importBackup(event.target.result);
         if (res.success) {
           this.showToast('Yedek başarıyla geri yüklendi! Sayfa yenileniyor...', 'success');
-          setTimeout(() => window.location.reload(), 1200);
+          setTimeout(() => window.location.reload(), 1000);
         } else {
           alert('Geri yükleme hatası: ' + res.error);
         }
@@ -627,7 +477,7 @@ class App {
       reader.readAsText(file);
     });
 
-    // HARD RESET (FABRİKA AYARLARINA SIFIRLA)
+    // HARD RESET
     const hardResetModal = document.getElementById('modal-hard-reset');
     document.getElementById('btn-hard-reset')?.addEventListener('click', () => {
       hardResetModal?.classList.remove('hidden');
@@ -641,18 +491,18 @@ class App {
       if (e.target === hardResetModal) hardResetModal.classList.add('hidden');
     });
 
-      document.getElementById('btn-confirm-hard-reset')?.addEventListener('click', () => {
+    document.getElementById('btn-confirm-hard-reset')?.addEventListener('click', () => {
       hardResetModal?.classList.add('hidden');
       const success = Storage.hardReset();
       if (success) {
-        this.showToast('Tüm test verileri temizlendi! Sayfa yenileniyor...', 'success');
+        this.showToast('Sıfırlandı! PPL başlangıç referansları yüklendi.', 'success');
         setTimeout(() => {
           window.location.reload();
         }, 600);
       }
     });
 
-    // FORCE CACHE REFRESH (Önbelleği Temizle & Yeni Sürümü Zorla İndir)
+    // FORCE CACHE REFRESH
     document.getElementById('btn-force-refresh-cache')?.addEventListener('click', async () => {
       this.showToast('Önbellek temizleniyor, güncel sürüm alınıyor...', 'info');
       try {
@@ -675,22 +525,28 @@ class App {
     });
   }
 
-  // --- ORDERED ROTATING ROUTINE CONTROLLERS ---
-  openRoutineSettingsModal() {
+  // --- PPL ROUTINE EDITOR MODAL ---
+  openRoutineSettingsModal(focusDayIdx = null) {
     const modal = document.getElementById('modal-routine-settings');
     if (!modal) return;
 
     this.editingRoutine = JSON.parse(JSON.stringify(Storage.getRoutine()));
-    
-    // Set weekly days input
+
     const daysInput = document.getElementById('routine-weekly-days-input');
-    if (daysInput) daysInput.value = this.editingRoutine.weeklyTargetDays || 4;
+    if (daysInput) daysInput.value = this.editingRoutine.weeklyTargetDays || 3;
 
     this.renderRoutineDayPicker();
     this.renderRoutineDaysEditor();
 
     modal.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
+
+    if (focusDayIdx !== null && focusDayIdx >= 0) {
+      setTimeout(() => {
+        const dayCard = document.getElementById(`routine-editor-day-${focusDayIdx}`);
+        if (dayCard) dayCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
   }
 
   closeRoutineSettingsModal() {
@@ -705,9 +561,13 @@ class App {
     container.innerHTML = this.editingRoutine.days.map((day, idx) => {
       const isCurrent = idx === this.editingRoutine.currentIndex;
       return `
-        <button type="button" class="btn-select-routine-pointer p-2.5 rounded-xl border text-left transition flex items-center justify-between ${isCurrent ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'}" data-idx="${idx}">
+        <button type="button" class="btn-select-routine-pointer p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+          isCurrent
+            ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+        }" data-idx="${idx}">
           <div class="min-w-0 pr-1">
-            <span class="text-[10px] font-bold block uppercase text-zinc-500">${idx + 1}. Sıra</span>
+            <span class="text-[10px] font-bold block uppercase text-zinc-500">${idx + 1}. Gün</span>
             <span class="text-xs font-extrabold truncate block text-zinc-100">${day.title}</span>
           </div>
           ${isCurrent ? '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>' : ''}
@@ -730,42 +590,42 @@ class App {
     const container = document.getElementById('routine-days-editor-list');
     if (!container || !this.editingRoutine || !this.editingRoutine.days) return;
 
-    const muscleOptions = ['Göğüs', 'Omuz', 'Sırt', 'Bacak', 'Kol', 'Karın', 'Tüm Vücut'];
+    const muscleOptions = ['Göğüs / Omuz / Triceps', 'Sırt / Arka Omuz / Biceps', 'Bacak', 'Göğüs', 'Sırt', 'Omuz', 'Kol', 'Tüm Vücut'];
 
     container.innerHTML = this.editingRoutine.days.map((day, dayIdx) => {
       const exercisesListHtml = (day.exercises || []).map((ex, exIdx) => `
-        <div class="flex items-center gap-2 mb-2 bg-zinc-950/70 p-2 rounded-xl border border-zinc-850">
-          <input type="text" value="${ex.name || ''}" placeholder="Hareket Adı (Örn: Incline Dumbbell Press)" 
-            class="input-routine-ex-name flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+        <div class="flex items-center gap-1.5 mb-2 bg-zinc-950/80 p-2 rounded-xl border border-zinc-800">
+          <input type="text" value="${ex.name || ''}" placeholder="Hareket Adı (Örn: Squat, Leg Press)"
+            class="input-routine-ex-name flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg py-1.5 px-2.5 text-xs font-semibold text-zinc-100 focus:outline-none focus:border-emerald-500"
             data-day="${dayIdx}" data-ex="${exIdx}">
-          
-          <div class="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-0.5">
+
+          <div class="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1">
             <span class="text-[10px] text-zinc-500 font-bold">Set:</span>
-            <input type="number" min="1" max="10" value="${ex.sets || 3}" 
+            <input type="number" min="1" max="10" value="${ex.sets || 3}"
               class="input-routine-ex-sets w-8 bg-transparent text-center text-xs font-bold text-emerald-400 focus:outline-none"
               data-day="${dayIdx}" data-ex="${exIdx}">
           </div>
 
-          <button type="button" class="btn-remove-routine-ex p-1 text-zinc-500 hover:text-rose-400 rounded transition" data-day="${dayIdx}" data-ex="${exIdx}" title="Hareketi Sil">
-            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <button type="button" class="btn-remove-routine-ex p-1.5 text-zinc-500 hover:text-rose-400 rounded transition" data-day="${dayIdx}" data-ex="${exIdx}" title="Hareketi Sil">
+            <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </div>
       `).join('');
 
       return `
-        <div class="card-oled rounded-2xl p-3.5 border border-zinc-800/90 bg-zinc-900/50">
+        <div id="routine-editor-day-${dayIdx}" class="card-oled rounded-2xl p-3.5 border border-zinc-800/90 bg-zinc-900/50">
           <div class="flex items-center justify-between mb-2 pb-2 border-b border-zinc-800">
             <div class="flex items-center gap-2 flex-1 min-w-0">
               <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-black flex items-center justify-center flex-shrink-0">
                 ${dayIdx + 1}
               </span>
-              <input type="text" value="${day.title || ''}" placeholder="Gün Başlığı (Örn: 1. Gün: Göğüs)" 
-                class="input-routine-day-title flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2.5 text-xs font-bold text-zinc-100 focus:outline-none focus:border-emerald-500" 
+              <input type="text" value="${day.title || ''}" placeholder="Gün Başlığı (Örn: Push / Pull / Legs)"
+                class="input-routine-day-title flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2.5 text-xs font-bold text-zinc-100 focus:outline-none focus:border-emerald-500"
                 data-day="${dayIdx}">
             </div>
 
             <div class="flex items-center gap-1 ml-2">
-              <select class="select-routine-day-muscle bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-[11px] text-zinc-300 focus:outline-none" data-day="${dayIdx}">
+              <select class="select-routine-day-muscle bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-[10px] text-zinc-300 focus:outline-none max-w-[115px]" data-day="${dayIdx}">
                 ${muscleOptions.map(m => `<option value="${m}" ${m === day.muscle ? 'selected' : ''}>${m}</option>`).join('')}
               </select>
               ${this.editingRoutine.days.length > 1 ? `
@@ -776,15 +636,13 @@ class App {
             </div>
           </div>
 
-          <!-- Exercises for this day -->
           <div class="mb-2">
-            ${exercisesListHtml.length > 0 ? exercisesListHtml : '<p class="text-[11px] text-zinc-500 py-1">Bu gün için henüz hareket eklenmedi.</p>'}
+            ${exercisesListHtml.length > 0 ? exercisesListHtml : '<p class="text-[11px] text-zinc-400 py-2 text-center bg-zinc-950/40 rounded-xl border border-dashed border-zinc-800">Bu gün için henüz hareket yok. Aşağıdaki butondan hemen ekleyebilirsin.</p>'}
           </div>
 
-          <!-- Add Exercise to Day Button -->
-          <button type="button" class="btn-add-routine-ex-to-day w-full py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-dashed border-zinc-750 text-zinc-400 hover:text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition" data-day="${dayIdx}">
+          <button type="button" class="btn-add-routine-ex-to-day w-full py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-dashed border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition" data-day="${dayIdx}">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            Bu Güne Hareket Ekle
+            + ${day.title} Gününe Hareket Ekle
           </button>
         </div>
       `;
@@ -792,7 +650,6 @@ class App {
 
     if (window.lucide) window.lucide.createIcons();
 
-    // Event listeners
     container.querySelectorAll('.input-routine-day-title').forEach(input => {
       input.addEventListener('input', (e) => {
         const d = parseInt(input.dataset.day, 10);
@@ -845,10 +702,13 @@ class App {
           if (!this.editingRoutine.days[d].exercises) this.editingRoutine.days[d].exercises = [];
           this.editingRoutine.days[d].exercises.push({
             name: '',
-            muscle: this.editingRoutine.days[d].muscle || 'Genel',
+            muscle: this.editingRoutine.days[d].muscle === 'Bacak' ? 'Bacak' : 'Genel',
             sets: 3
           });
           this.renderRoutineDaysEditor();
+          // Auto-focus the newly added input
+          const inputs = container.querySelectorAll(`.input-routine-ex-name[data-day="${d}"]`);
+          if (inputs.length > 0) inputs[inputs.length - 1].focus();
         }
       };
     });
@@ -870,24 +730,21 @@ class App {
 
   addRoutineDay() {
     if (!this.editingRoutine || !this.editingRoutine.days) return;
-    const dayNumber = this.editingRoutine.days.length + 1;
     this.editingRoutine.days.push({
       id: 'day_' + Date.now(),
-      title: `${dayNumber}. Gün: Yeni Bölge`,
+      title: `Yeni Gün`,
       muscle: 'Genel',
-      exercises: [
-        { name: 'Temel Hareket', muscle: 'Genel', sets: 4 }
-      ]
+      exercises: []
     });
     this.renderRoutineDayPicker();
     this.renderRoutineDaysEditor();
   }
 
   resetDefaultRoutine() {
-    if (confirm('Rutin ayarlarını varsayılan 4 günlük programa (Göğüs - Omuz - Sırt - Bacak) sıfırlamak istediğinize emin misiniz?')) {
-      this.editingRoutine = JSON.parse(JSON.stringify(DEFAULT_ROUTINE));
+    if (confirm('Rutin ayarlarını varsayılan Push - Pull - Legs (PPL) programına sıfırlamak istediğinize emin misiniz?')) {
+      this.editingRoutine = JSON.parse(JSON.stringify(window.DEFAULT_ROUTINE));
       const daysInput = document.getElementById('routine-weekly-days-input');
-      if (daysInput) daysInput.value = this.editingRoutine.weeklyTargetDays || 4;
+      if (daysInput) daysInput.value = this.editingRoutine.weeklyTargetDays || 3;
       this.renderRoutineDayPicker();
       this.renderRoutineDaysEditor();
     }
@@ -899,8 +756,37 @@ class App {
       return;
     }
 
+    // Filter out empty exercise rows and register any new custom exercises in database
+    const allExercises = Storage.getExercises();
+    this.editingRoutine.days.forEach(day => {
+      day.exercises = (day.exercises || [])
+        .filter(ex => ex.name && ex.name.trim() !== '')
+        .map(ex => {
+          const cleanName = ex.name.trim();
+          let matched = allExercises.find(e =>
+            (ex.exerciseId && e.id === ex.exerciseId) ||
+            e.name.toLowerCase() === cleanName.toLowerCase()
+          );
+          if (!matched) {
+            matched = Storage.saveExercise({
+              name: cleanName,
+              muscle: day.muscle === 'Bacak' ? 'Bacak' : (ex.muscle || 'Genel'),
+              equipment: 'Serbest',
+              category: 'PPL',
+              defaultIncrement: day.muscle === 'Bacak' ? 5 : 2.5
+            });
+          }
+          return {
+            ...ex,
+            name: cleanName,
+            exerciseId: matched.id,
+            sets: parseInt(ex.sets, 10) || 3
+          };
+        });
+    });
+
     const weeklyDaysInput = document.getElementById('routine-weekly-days-input');
-    const targetDays = weeklyDaysInput ? (parseInt(weeklyDaysInput.value, 10) || 4) : 4;
+    const targetDays = weeklyDaysInput ? (parseInt(weeklyDaysInput.value, 10) || 3) : 3;
     this.editingRoutine.weeklyTargetDays = Math.max(1, Math.min(7, targetDays));
 
     if (this.editingRoutine.currentIndex >= this.editingRoutine.days.length) {
@@ -909,12 +795,13 @@ class App {
 
     Storage.saveRoutine(this.editingRoutine);
     workout.renderNextRoutineCard();
+    workout.renderTemplates();
+    charts.renderAll();
     this.closeRoutineSettingsModal();
-    this.showToast('Sıralı antrenman rutini kaydedildi!', 'success');
+    this.showToast('PPL programı ve hareketler kaydedildi!', 'success');
   }
 
   bindGlobalActions() {
-    // Enable Web Audio on first user interaction anywhere
     const unlockAudio = () => {
       sound.init();
       window.removeEventListener('click', unlockAudio);
